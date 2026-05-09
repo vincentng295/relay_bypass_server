@@ -1,0 +1,33 @@
+name: VLESS Reality FRP
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  run-proxy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python3 -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Download Xray and FRP Binaries
+        run: |
+          python3 download-xray.py
+          python3 download-service.py
+
+      - name: Start Main Application
+        env:
+          ENV_CONFIG: ${{ secrets.ENV_CONFIG }}
+          PYTHONUNBUFFERED: 1
+        run: python3 github-workflows.py
