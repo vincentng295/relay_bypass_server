@@ -1,6 +1,12 @@
 name: VLESS Reality FRP
 on:
   workflow_dispatch:
+    inputs:
+      bridge_workflows:
+        description: "Bridge the workflows"
+        default: false
+        required: false
+        type: boolean
 
 jobs:
   run-proxy:
@@ -26,6 +32,8 @@ jobs:
 
       - name: Start Main Application
         env:
+          BRIDGE_WORKFLOWS: ${{ github.event.inputs.bridge_workflows }}
           ENV_CONFIG: ${{ secrets.ENV_CONFIG }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PYTHONUNBUFFERED: 1
         run: python3 github-workflows.py

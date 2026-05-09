@@ -153,6 +153,10 @@ def main():
     print(f"URI: {vless_uri}")
     print("="*60 + "\n")
 
+    file = "frp_info.config"
+    with open(file, "w") as f:
+        f.write(vless_uri)
+
     xp, fp = start_services()
 
     try:
