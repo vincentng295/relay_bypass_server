@@ -5,19 +5,27 @@ import tarfile
 import requests
 import shutil
 
+def get_frp_arch():
+    machine = platform.machine().lower()
+    # Map các loại kiến trúc phổ biến
+    if machine in ["aarch64", "arm64"]:
+        return "arm64"
+    elif machine in ["armv7l", "arm"]:
+        return "arm"
+    return "amd64" # Mặc định cho PC
+
 def install_frp():
     sys = platform.system().lower()
-    arch = "amd64" # Đa số máy tính hiện nay là amd64
+    arch = get_frp_arch() # Tự động nhận diện thay vì gán cứng amd64
     version = "0.61.1"
     
-    # Xác định link tải dựa trên OS
     if sys == "windows":
         file_ext = "zip"
         os_name = "windows"
         bin_name = "frpc.exe"
     else:
         file_ext = "tar.gz"
-        os_name = "linux"
+        os_name = "linux" # Termux được nhận diện là linux
         bin_name = "frpc"
 
     url = f"https://github.com/fatedier/frp/releases/download/v{version}/frp_{version}_{os_name}_{arch}.{file_ext}"
