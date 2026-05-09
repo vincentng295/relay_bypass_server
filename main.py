@@ -25,7 +25,8 @@ def main():
             "FRP_SERVER_ADDR": "frp.freefrp.net",
             "FRP_SERVER_PORT": "7000",
             "FRP_TOKEN": "freefrp.net",
-            "REMOTE_PORT": "12345"
+            "REMOTE_PORT": "12345",
+            "TRAFFIC_LOGGING": "false"
         }
 
         if not os.path.exists(env_path):
@@ -54,6 +55,7 @@ def main():
     FRP_SERVER_PORT = int(os.getenv("FRP_SERVER_PORT", 7000))
     FRP_TOKEN = os.getenv("FRP_TOKEN", "freefrp.net")
     REMOTE_PORT = int(os.getenv("REMOTE_PORT", 12345))
+    TRAFFIC_LOGGING = os.getenv("TRAFFIC_LOGGING", "false").lower() == "true"
 
     print(f"[*] Kết nối đến FRP: {FRP_SERVER_ADDR}:{REMOTE_PORT}")
 
@@ -137,8 +139,9 @@ def main():
         )
 
         # Chạy các luồng đọc log song song
-        threading.Thread(target=log_reader, args=(xp.stdout, "XRAY"), daemon=True).start()
-        threading.Thread(target=log_reader, args=(fp.stdout, "FRP"), daemon=True).start()
+        if TRAFFIC_LOGGING:
+            threading.Thread(target=log_reader, args=(xp.stdout, "XRAY"), daemon=True).start()
+            threading.Thread(target=log_reader, args=(fp.stdout, "FRP"), daemon=True).start()
 
         return xp, fp
 
