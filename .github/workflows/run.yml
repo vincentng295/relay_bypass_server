@@ -1,8 +1,6 @@
 name: VLESS Reality FRP
 on:
   workflow_dispatch:
-  push:
-    branches: [ main ]
 
 jobs:
   run-proxy:
