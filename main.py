@@ -1,10 +1,16 @@
 import os
 import json
+import re
+from sys import prefix
 from dotenv import load_dotenv
 import threading
 import subprocess
 import platform
 import uuid
+
+from dotenv.main import logger
+from logging_site import RealtimeLogger
+import time
 
 def main():
     # =========================================
@@ -26,7 +32,6 @@ def main():
             "FRP_SERVER_PORT": "7000",
             "FRP_TOKEN": "freefrp.net",
             "REMOTE_PORT": "12345",
-            "TRAFFIC_LOGGING": "false"
         }
 
         if not os.path.exists(env_path):
@@ -55,12 +60,10 @@ def main():
     FRP_SERVER_PORT = int(os.getenv("FRP_SERVER_PORT", 7000))
     FRP_TOKEN = os.getenv("FRP_TOKEN", "freefrp.net")
     REMOTE_PORT = int(os.getenv("REMOTE_PORT", 12345))
-    TRAFFIC_LOGGING = os.getenv("TRAFFIC_LOGGING", "false").lower() == "true"
-
-    print(f"[*] Kết nối đến FRP: {FRP_SERVER_ADDR}:{REMOTE_PORT}")
 
     XRAY_BIN = "./xray.exe" if platform.system().lower() == "windows" else "./xray"
     FRPC_BIN = "./frpc.exe" if platform.system().lower() == "windows" else "./frpc"
+    CLF_BIN = "./cloudflared.exe" if platform.system().lower() == "windows" else "./cloudflared"
 
     # =========================================
     # TẠO FILE CẤU HÌNH
@@ -119,6 +122,7 @@ def main():
         write_configs()
         
         # Khởi chạy Xray
+        print("[*] Khởi chạy XRAY tại 127.0.0.1:8888")
         xp = subprocess.Popen(
             [XRAY_BIN, "run", "-c", "config.json"],
             stdout=subprocess.PIPE,
@@ -129,6 +133,7 @@ def main():
         )
         
         # Khởi chạy Frp
+        print(f"[*] Khởi chạy FRP tại {FRP_SERVER_ADDR}:{REMOTE_PORT}")
         fp = subprocess.Popen(
             [FRPC_BIN, "-c", "frpc.toml"],
             stdout=subprocess.PIPE,
@@ -139,11 +144,32 @@ def main():
         )
 
         # Chạy các luồng đọc log song song
-        if TRAFFIC_LOGGING:
-            threading.Thread(target=log_reader, args=(xp.stdout, "XRAY"), daemon=True).start()
-            threading.Thread(target=log_reader, args=(fp.stdout, "FRP"), daemon=True).start()
+        logger = RealtimeLogger(port=9999, password=PRIVATE_KEY if PRIVATE_KEY else None)
+        logger_url = logger.start()
+        print(f"[*] Logger Web UI đang chạy tại: {logger_url}")
+        clp = subprocess.Popen(
+            [CLF_BIN, "tunnel", "--url", logger_url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding='utf-8',
+            errors='replace'
+        )
+        def log_push(pipe, prefix):
+            try:
+                with pipe:
+                    ansi_escape = re.compile(r'\x1b\[[0-9;]*[mK]')
+                    for line in iter(pipe.readline, ''):
+                        clean_line = ansi_escape.sub('', line)
+                        logger.push_log(clean_line.strip(), prefix)
+            except Exception as e:
+                print(f"Error in log_push for {prefix}: {e}")
+                
+        threading.Thread(target=log_push, args=(xp.stdout, "XRAY"), daemon=True).start()
+        threading.Thread(target=log_push, args=(fp.stdout, "FRP"), daemon=True).start()
+        threading.Thread(target=log_reader, args=(clp.stdout, "CLOUDFLARED"), daemon=True).start()
 
-        return xp, fp
+        return xp, fp, clp
 
     # In link URI trước
     vless_uri = (
@@ -160,7 +186,7 @@ def main():
     with open(file, "w") as f:
         f.write(vless_uri)
 
-    xp, fp = start_services()
+    xp, fp, clp = start_services()
 
     try:
         # Giữ script chạy để xem log
@@ -169,6 +195,7 @@ def main():
         print("\n[*] Đang dừng dịch vụ...")
         xp.terminate()
         fp.terminate()
+        clp.terminate()
 
 if __name__ == "__main__":
     main()

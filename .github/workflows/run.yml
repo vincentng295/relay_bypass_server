@@ -25,10 +25,11 @@ jobs:
           python3 -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Download Xray and FRP Binaries
+      - name: Download Binaries
         run: |
           python3 download-xray.py
           python3 download-service.py
+          python3 download-cloudflared.py
 
       - name: Start Main Application
         env:
